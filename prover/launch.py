@@ -22,8 +22,8 @@ if __name__ == "__main__":
     cfg = load_config(args.config)
     os.makedirs(args.log_dir, exist_ok=True)
 
-    ngpus = torch.cuda.device_count()
-    assert ngpus >= 1
+    #XXX: ngpus = torch.cuda.device_count()
+    #XXX: assert ngpus >= 1
     
     # create data loader
     data_loader = DataLoader(
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     generator_scheduler = ProcessScheduler(batch_size=cfg.batch_size, name='generator')
     llm_processes = [
         GeneratorProcess(
-            local_rank=local_rank,
+            local_rank=0,  # XXX: prev local_rank
             node_rank=args.node_rank,
             model_path=cfg.model_path,
             task_queue=generator_scheduler.task_queue,
@@ -55,7 +55,7 @@ if __name__ == "__main__":
             lock=generator_scheduler.lock,
             args=cfg.model_args,
         )
-        for local_rank in range(ngpus)
+        # XXX: for local_rank in range(ngpus)
     ]
 
     # create a unified scheduler interface

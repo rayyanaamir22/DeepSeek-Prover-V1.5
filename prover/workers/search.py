@@ -50,6 +50,7 @@ class SearchProcess(mp.Process):
             prob_idx, prob_runname, data = self.data_loader.get()
             if prob_idx is None: break
             
+            # GET SAMPLES
             sample_start_time = time.time()
             # build a yield-iterator object to generate samples
             self._current_prob = f'{prob_idx}_{prob_runname}'
@@ -59,6 +60,8 @@ class SearchProcess(mp.Process):
                 data=data,
                 prob_log_dir=prob_log_dir,
             )
+
+            # LEAN VERIFICATION
             # submit requests to the verification server when receiving from the generator
             candidate_list, info_list, request_id_list = [], [], []
             for sample, info in sample_generator:
@@ -69,6 +72,7 @@ class SearchProcess(mp.Process):
                 request_id_list.append(request_id)
             sample_timecost = time.time() - sample_start_time
 
+            # time the verification process
             verification_start_wait_time = time.time()
             result_list = self.scheduler.verifier_get_all_request_outputs(request_id_list)
             verification_timecost = time.time() - verification_start_wait_time
