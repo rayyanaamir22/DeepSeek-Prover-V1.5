@@ -10,10 +10,13 @@ from prover.workers import DataLoader, Scheduler, ProcessScheduler, GeneratorPro
 from prover.lean.verifier import Lean4ServerScheduler
 from prover.utils import get_datetime, load_config, AttrDict
 
+# generator service
+from prover.generator_service.generator_service import run_generator_service
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str)
+    parser.add_argument("--config", type=str, default="configs/RMaxTS.py")  # NOTE: hardcoded for now
     parser.add_argument("--log_dir", type=str, default=f'logs/{get_datetime()}')
     parser.add_argument("--node_rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
@@ -22,8 +25,12 @@ if __name__ == "__main__":
     cfg = load_config(args.config)
     os.makedirs(args.log_dir, exist_ok=True)
 
-    #XXX: ngpus = torch.cuda.device_count()
-    #XXX: assert ngpus >= 1
+    # run generator service
+    run_generator_service()
+
+    # advisable to run on GPUs only
+    ngpus = torch.cuda.device_count()
+    assert ngpus >= 1
     
     # create data loader
     data_loader = DataLoader(
@@ -47,7 +54,7 @@ if __name__ == "__main__":
     generator_scheduler = ProcessScheduler(batch_size=cfg.batch_size, name='generator')
     llm_processes = [
         GeneratorProcess(
-            local_rank=0,  # XXX: prev local_rank
+            local_rank=local_rank,
             node_rank=args.node_rank,
             model_path=cfg.model_path,
             task_queue=generator_scheduler.task_queue,
@@ -55,7 +62,7 @@ if __name__ == "__main__":
             lock=generator_scheduler.lock,
             args=cfg.model_args,
         )
-        # XXX: for local_rank in range(ngpus)
+        for local_rank in range(ngpus)
     ]
 
     # create a unified scheduler interface
