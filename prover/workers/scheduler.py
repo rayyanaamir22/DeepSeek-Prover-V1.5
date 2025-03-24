@@ -121,7 +121,7 @@ class Scheduler(object):
             scheduler.close()
 
 class GeneratorScheduler(object):
-    def __init__(self, processes, batch_size=512, name='generator'):
+    def __init__(self, batch_size=512, name='generator'):
         # Use the spawn context explicitly
         self.ctx = mp.get_context('spawn')
         self.manager = self.ctx.Manager()
@@ -129,6 +129,9 @@ class GeneratorScheduler(object):
         self.request_statuses = self.manager.dict()
         self.request_counter = self.ctx.Value(ctypes.c_int32, 0)
         self.lock = self.ctx.Lock()
+        self.processes = []
+    
+    def add_processes(self, processes) -> None:
         self.processes = processes
     
     def start(self):
