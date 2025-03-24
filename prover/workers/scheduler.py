@@ -119,3 +119,57 @@ class Scheduler(object):
     def close(self):
         for _, scheduler in self._scheduler_dict.items():
             scheduler.close()
+
+class GeneratorScheduler(object):
+    def __init__(self, processes, batch_size=512, name='generator'):
+        # Use the spawn context explicitly
+        self.ctx = mp.get_context('spawn')
+        self.manager = self.ctx.Manager()
+        self.task_queue = TaskQueue(batch_size=batch_size, name=name, ctx=self.ctx)
+        self.request_statuses = self.manager.dict()
+        self.request_counter = self.ctx.Value(ctypes.c_int32, 0)
+        self.lock = self.ctx.Lock()
+        self.processes = processes
+    
+    def start(self):
+        for proc in self.processes:
+            proc.start()
+    
+    def submit_request(self, data):
+        with self.lock:
+            self.request_counter.value += 1
+            request_id = self.request_counter.value
+            self.request_statuses[request_id] = None
+            # Each task is a tuple: (timestamp, request_id, data)
+            self.task_queue.put((time.time(), request_id, data))
+        return request_id
+    
+    def submit_all_requests(self, data_list):
+        request_ids = [self.submit_request(data) for data in data_list]
+        return request_ids
+    
+    def get_request_status(self, request_id):
+        with self.lock:
+            result = self.request_statuses.get(request_id, None)
+            if result is not None:
+                del self.request_statuses[request_id]
+            return result
+    
+    def get_request_output(self, request_id, poll_interval=1.0):
+        while True:
+            output = self.get_request_status(request_id)
+            if output is not None:
+                return output
+            time.sleep(poll_interval)
+    
+    def get_all_request_outputs(self, request_ids, poll_interval=1.0):
+        return [self.get_request_output(rid, poll_interval=poll_interval) for rid in request_ids]
+    
+    def close(self):
+        # Send termination signals to each process
+        for _ in self.processes:
+            self.task_queue.put(None)
+        # Join all processes
+        for proc in self.processes:
+            proc.join()
+        self.task_queue.close()

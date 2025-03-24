@@ -7,3 +7,6 @@ pandas
 tabulate
 termcolor
 accelerate
+fastapi
+uvicorn
+pydantic
